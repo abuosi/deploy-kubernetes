@@ -137,7 +137,15 @@ systemctl start kubelet
 ```sh
 kubeadm init --control-plane-endpoint "LOAD_BALANCER_DNS:LOAD_BALANCER_PORT" --upload-certs
 ```
-Copie e guarde os comandos de `JOIN` dos demais `masters` e dos `workers`
+Copie e guarde os comandos de `JOIN` dos demais `masters` e dos `workers` para utilizarmos a seguir.
+
+Agora vamos configurar o `kubectl` para ele ter acesso ao Cluster. Na saida do `kubeadm` tem o seguintes comandos que devemos executar em cada `master` que realizarmos o `join` no cluster.
+
+```sh
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
 
 Instale o Pod Network Controller do cluster, nesse caso vamos utilizar o Weave que foi recomendado na documentação oficial do Kubernetes
 ```sh
@@ -165,12 +173,13 @@ Utilizado a documentação oficial do [Helm](https://helm.sh/docs/intro/quicksta
 
 Baixe o Helm
 ```sh
-wget https://get.helm.sh/helm-v2.16.9-linux-amd64.tar.gz
-tar -xvzf helm-v2.16.9-linux-amd64.tar.gz
+wget https://get.helm.sh/helm-v3.2.4-linux-amd64.tar.gz
+tar -xvzf helm-v3.2.4-linux-amd64.tar.gz
 ```
-Copie o executável do Helm para a pasta `/usr/local/bin`
+Copie o executável do Helm para a pasta `/usr/local/bin`, e ajuste a permissão para garantir a execução.
 ```sh
-cp helm-v2.16.9-linux-amd64/helm /usr/local/bin
+cp linux-amd64/helm /usr/local/bin
+chmod 755 /usr/local/bin/helm
 ```
 Inicialize o Repositório de Chart do Helm
 ```
@@ -181,11 +190,53 @@ Vamos verificar se esta funcionando, listando os charts disponiveis
 helm repo update
 helm search repo stable
 ```
-## 13. Instalar Prometheus através do Helm
+## 13. Instalar Prometheus Operator no Cluster par Monitoração
+Primeiramente vamos criar um `namespace` com o nome `monitoring` no cluster para receber o deploy do `Prometheus Operator`.
+```sh
+kubectl create namespace monitoring
+```
+Após isso vamos executar o comando `helm` abaixo para instalar o `Prometheus Operator`
+```sh
+helm install prometheus-operator my-release stable/prometheus-operator --namespace monitoring
+```
+## 14 Instalar Ingress através do Helm
+Para Ingres vamos utilizar o [Traefik](https://docs.traefik.io/).
 
-## 14. Instalar Grafana através do Helm
+Adicione repositorio do `Traefik` no `Helm`.
 
-## 15 Instalar Ingress através do Helm
+```sh
+helm repo add traefik https://containous.github.io/traefik-helm-chart
+```
+
+Atualize a lista de repositorios do `Helm`.
+
+```sh
+helm repo update
+```
+
+Crie um `namespace` para instalarmos o `Traefik`, assim deixamos mais organizado e segredado os workloads de nosso cluster 
+```sh
+kubectl create namespace traefik
+```
+
+Agora vamos instalar o `Chart` do `Traefik`
+
+```sh
+helm install traefik traefik/traefik --namespace traefik
+```
+Verifique se os todos recursos do `Traefik` no cluster estão OK.
+
+```sh
+kubectl get all -n traefik
+```
+Se tudo estive OK, vamos acessar o `Dashboard` do `Traefik`
+
+```sh
+kubectl port-forward $(kubectl get pods --selector "app.kubernetes.io/name=traefik" --output=name) 9000:9000
+```
+Acesse a URL: http://127.0.0.1:9000/dashboard/
+
+
 
 
 
